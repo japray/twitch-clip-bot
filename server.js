@@ -74,104 +74,24 @@ app.get('/test', (req, res) => {
   });
 });
 
-// Main clip creation endpoint
-app.get('/clip', async (req, res) => {
+// Simple endpoint for direct text responses
+// Add this endpoint for clean URL responses
+app.get('/clip/url', async (req, res) => {
   try {
     const clientId = process.env.CLIENT_ID;
     const accessToken = process.env.ACCESS_TOKEN;
     const broadcasterId = process.env.BROADCASTER_ID;
 
-    // Get user info from query parameters (for authorization check)
+    // Authorization check
     const user = req.query.user || 'unknown';
-    const userRole = req.query.role || 'viewer'; // Nightbot provides this
-
-    console.log(`🎬 Clip request from: ${user}, role: ${userRole}`);
-
-    // Check if user is authorized (mod, broadcaster, or VIP)
+    const userRole = req.query.role || 'viewer';
+    
     const allowedRoles = ['mod', 'broadcaster', 'vip', 'owner'];
     const isBroadcaster = user.toLowerCase() === process.env.CHANNEL_NAME?.toLowerCase();
     
-    if (allowedRoles.includes(userRole) && isBroadcaster) {
-      return res.json({
-        message: '❌ Only moderators, VIPs, and the broadcaster can create clips.'
-      });
+    if (!allowedRoles.includes(userRole) && !isBroadcaster) {
+      return res.send('Unauthorized');
     }
-
-    // Validate required environment variables
-    if (!clientId || !accessToken || !broadcasterId) {
-      console.error('Missing environment variables');
-      return res.status(500).json({
-        message: '❌ Server configuration error. Please contact the streamer.'
-      });
-    }
-
-    console.log('📡 Creating clip via Twitch API...');
-
-    // Create clip using Twitch API
-    const response = await axios.post(
-      `https://api.twitch.tv/helix/clips?broadcaster_id=${broadcasterId}`,
-      {},
-      {
-        headers: {
-          'Client-ID': clientId,
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    console.log('📊 Twitch API response:', response.status);
-
-    if (response.status === 202 || response.status === 200) {
-      const clipData = response.data;
-      const clipId = clipData.data[0].id;
-      
-      // Construct the clip URL
-      const clipUrl = `https://clips.twitch.tv/${clipId}`;
-      
-      console.log(`✅ Clip created: ${clipUrl}`);
-      
-      res.json({
-        message: `✅ Clip created! ${clipUrl}`
-      });
-    } else {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-  } catch (error) {
-    console.error('❌ Clip creation error:', error.response?.data || error.message);
-    
-    // Handle specific error cases
-    if (error.response?.status === 401) {
-      return res.json({
-        message: '❌ Authentication failed. Please contact the streamer.'
-      });
-    }
-    
-    if (error.response?.status === 403) {
-      return res.json({
-        message: '❌ Stream must be live to create clips!'
-      });
-    }
-    
-    if (error.response?.data?.message?.includes('channel must be live')) {
-      return res.json({
-        message: '❌ Stream must be live to create clips!'
-      });
-    }
-
-    // Generic error response
-    res.json({
-      message: '❌ Failed to create clip. The stream might be offline.'
-    });
-  }
-});
-
-// Simple endpoint for direct text responses
-app.get('/clip/simple', async (req, res) => {
-  try {
-    const clientId = process.env.CLIENT_ID;
-    const accessToken = process.env.ACCESS_TOKEN;
-    const broadcasterId = process.env.BROADCASTER_ID;
 
     // Create clip
     const response = await axios.post(
@@ -185,95 +105,18 @@ app.get('/clip/simple', async (req, res) => {
       }
     );
 
-   if (createClipResponse.status === 202 || createClipResponse.status === 200) {
-      const clipData = createClipResponse.data;
-      const clipId = clipData.data[0].id;
+    if (response.status === 202) {
+      const clipId = response.data.data[0].id;
+      const clipUrl = `https://clips.twitch.tv/${clipId}`;
       
-      console.log(`📹 Clip ID: ${clipId}`);
-      
-      // Wait for clip to process
-      console.log('⏳ Waiting for clip to process...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Try to get clip details
-      try {
-        const getClipResponse = await axios.get(
-          `https://api.twitch.tv/helix/clips?id=${clipId}`,
-          {
-            headers: {
-              'Client-ID': clientId,
-              'Authorization': `Bearer ${accessToken}`
-            }
-          }
-        );
-
-
-    if (createClipResponse.status === 202 || createClipResponse.status === 200) {
-      const clipData = createClipResponse.data;
-      const clipId = clipData.data[0].id;
-      
-      console.log(`📹 Clip ID: ${clipId}`);
-      
-      // Wait for clip to process
-      console.log('⏳ Waiting for clip to process...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Try to get clip details
-      try {
-        const getClipResponse = await axios.get(
-          `https://api.twitch.tv/helix/clips?id=${clipId}`,
-          {
-            headers: {
-              'Client-ID': clientId,
-              'Authorization': `Bearer ${accessToken}`
-            }
-          }
-        );
-
-        if (getClipResponse.status === 200 && getClipResponse.data.data.length > 0) {
-          const clipInfo = getClipResponse.data.data[0];
-          const clipUrl = clipInfo.url || `https://clips.twitch.tv/${clipId}`;
-          
-          console.log(`✅ Clip created successfully: ${clipUrl}`);
-          
-          // Send plain text response instead of JSON
-          res.send(`✅ Clip created! ${clipUrl}`);
-        } else {
-          // If we can't get clip details, still return success with basic URL
-          const basicUrl = `https://clips.twitch.tv/${clipId}`;
-          console.log(`⚠️ Using basic URL: ${basicUrl}`);
-          
-          res.send(`✅ Clip created! ${basicUrl}`);
-        }
-      } catch (clipDetailError) {
-        // Even if details fail, the clip was created
-        const basicUrl = `https://clips.twitch.tv/${clipId}`;
-        console.log(`⚠️ Clip details failed, but clip was created: ${basicUrl}`);
-        
-        res.send(`✅ Clip created! ${basicUrl}`);
-      }
+      // URL only response
+      res.send(clipUrl);
     } else {
-      throw new Error(`HTTP ${createClipResponse.status}: ${createClipResponse.statusText}`);
+      res.send('Error: Stream might be offline');
     }
 
   } catch (error) {
-    console.error('❌ Clip creation error:', error.response?.data || error.message);
-    
-    // Handle specific error cases
-    if (error.response?.status === 401) {
-      return res.send('❌ Authentication failed. Please contact the streamer.');
-    }
-    
-    if (error.response?.status === 403) {
-      return res.send('❌ Stream must be live to create clips!');
-    }
-    
-    if (error.response?.data?.message?.includes('channel must be live')) {
-      return res.send('❌ Stream must be live to create clips!');
-    }
-
-    // Generic error response
-    res.send('❌ Failed to create clip. The stream might be offline or there was an API issue.');
+    res.send('Error creating clip');
   }
 });
 
