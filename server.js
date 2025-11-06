@@ -187,12 +187,12 @@ app.get('/clip/simple', async (req, res) => {
 
     if (response.status === 202) {
       const clipId = response.data.data[0].id;
-      const clipUrl = `https://clips.twitch.tv/${clipId}`;
+      const clipUrl = `https://clips.twitch.tv/${clipId} `;
       
       // Simple text response for Nightbot
-      res.send(✅ Clip created! ${clipUrl});
+      res.send(`✅ Clip created! ${clipUrl}`);
     } else {
-      res.send(❌ Failed to create clip. Stream might be offline);
+      res.send('❌ Failed to create clip. Stream might be offline.');
     }
 
   } catch (error) {
