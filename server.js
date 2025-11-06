@@ -91,7 +91,7 @@ app.get('/clip', async (req, res) => {
     const allowedRoles = ['mod', 'broadcaster', 'vip', 'owner'];
     const isBroadcaster = user.toLowerCase() === process.env.CHANNEL_NAME?.toLowerCase();
     
-    if (!allowedRoles.includes(userRole) && !isBroadcaster) {
+    if (allowedRoles.includes(userRole) && isBroadcaster) {
       return res.json({
         message: '❌ Only moderators, VIPs, and the broadcaster can create clips.'
       });
