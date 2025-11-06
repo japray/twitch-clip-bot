@@ -89,7 +89,7 @@ app.get('/clip/url', async (req, res) => {
     const allowedRoles = ['mod', 'broadcaster', 'vip', 'owner'];
     const isBroadcaster = user.toLowerCase() === process.env.CHANNEL_NAME?.toLowerCase();
     
-    if (!allowedRoles.includes(userRole) && !isBroadcaster) {
+    if (allowedRoles.includes(userRole) && isBroadcaster) {
       return res.send('Unauthorized');
     }
 
